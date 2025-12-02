@@ -2,8 +2,8 @@
 
 use App\Models\Hold;
 use App\Models\Order;
-use App\Models\PaymentWebhook;
 use App\Models\Product;
+use Illuminate\Support\Facades\Cache;
 
 it('creates order from valid hold', function () {
     
@@ -41,25 +41,31 @@ it('prevents duplicate webhook with same idempotency key', function () {
     
     $order = Order::find($orderResponse->json('data.id'));
     
-    $sameKey = 'duplicate-key-' . time();
+    $sameKey = 'test-idempotency-key-' . time();
     
-    $response1 = $this->postJson('/api/payments/webhook/', [
-        'idempotency_key' => $sameKey,
+    $response1 = $this->withHeader('Idempotency-Key', $sameKey)->postJson('/api/payments/webhook/', [
         'status' => 'success',
         'order_id' => $order->id
     ]);
     
     $response1->assertStatus(200);
     
-    $response2 = $this->postJson('/api/payments/webhook/', [
-        'idempotency_key' => $sameKey,
+    $response2 = $this->withHeader('Idempotency-Key', $sameKey)->postJson('/api/payments/webhook/', [
         'status' => 'success',
         'order_id' => $order->id
     ]);
     
-    $response2->assertStatus(422);
+    $response2->assertStatus(200);
+
+     // Verify the cache key exists and contains the response
+    expect(Cache::has("idempotency:{$sameKey}"))->toBeTrue();
     
-    expect(PaymentWebhook::where('idempotency_key', $sameKey)->count())->toBe(1);
+    // Verify both responses are identical
+    expect($response1->getContent())->toBe($response2->getContent());
+    
+    // Verify the order was only processed once (not twice)
+    $order->refresh();
+    expect($order->payment_status->value)->toBe('success');
 
 });
 
@@ -67,14 +73,11 @@ it('handles webhook arriving before order creation', function () {
     
     $nonExistentOrderId = 999999;
     
-    $response = $this->postJson('/api/payments/webhook/', [
-        'idempotency_key' => 'before-order-' . time(),
+    $response = $this->withHeader('Idempotency-Key', 'before-order-' . time())->postJson('/api/payments/webhook/', [
         'status' => 'success', 
         'order_id' => $nonExistentOrderId
     ]);
     
     $response->assertStatus(422);
-    
-    expect(PaymentWebhook::where('order_id', $nonExistentOrderId)->exists())->toBeTrue();
 
 });

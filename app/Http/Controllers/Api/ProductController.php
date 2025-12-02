@@ -12,7 +12,6 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\ProductResource;
 use App\Models\Hold;
 use App\Models\Order;
-use App\Models\PaymentWebhook;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -104,20 +103,11 @@ class ProductController extends Controller
         // Log the incoming webhook request
         Log::info("Received payment webhook", $request->all());
 
-        $idempotencyKey = $request->input('idempotency_key');
-        $paymentStatus = PaymentStatusEnum::tryFrom($request->input('status'));
-        $orderId = $request->input('order_id');
-
-        // Check idempotency before transaction
-        $webhookExists = PaymentWebhook::byIdempotencyKey($idempotencyKey)->exists();
-
-        if ($webhookExists) {
-            Log::error("Duplicate webhook: {$idempotencyKey}");
-            return errorJsonResponse("Duplicate webhook received");
-        }
+        $orderId = $request->input("order_id");
+        $paymentStatus = PaymentStatusEnum::from($request->input("status"));
 
         // Use transaction with row locking
-        return DB::transaction(function () use ($orderId, $paymentStatus, $idempotencyKey) {
+        return DB::transaction(function () use ($orderId, $paymentStatus) {
 
             // Lock the order row for update
             $order = Order::query()->where('id', $orderId)->lockForUpdate()->first();
@@ -126,13 +116,6 @@ class ProductController extends Controller
 
                 // Log and store webhook for non-existing order
                 Log::error("Order not found: {$orderId}");
-
-                // Store webhook
-                PaymentWebhook::create([
-                    'idempotency_key' => $idempotencyKey,
-                    'order_id' => $orderId,
-                    "poayload" => request()->all(),
-                ]);
 
                 // Return error response for non-existing order
                 return errorJsonResponse("Order not found");
@@ -144,16 +127,9 @@ class ProductController extends Controller
 
                 Log::warning("Order already in final state: {$order->id}");
 
-                return successJsonResponse("Order already processed");
+                return errorJsonResponse("Order already processed");
 
             }
-
-            // Store webhook
-            PaymentWebhook::create([
-                'idempotency_key' => $idempotencyKey,
-                'order_id' => $order->id,
-                "payload" => request()->all(),
-            ]);
 
             // Process payment status if success
             if ($paymentStatus->isSuccess()) {

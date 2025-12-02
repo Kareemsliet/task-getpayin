@@ -1,6 +1,5 @@
 # Flash-Sale Checkout System
 
-
 A Laravel checkout system for flash sales that prevents overselling through inventory holds and handles concurrent requests safely.
 
 ## Features

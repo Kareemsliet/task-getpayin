@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Middleware\IdempotencyKeyMiddleware;
 use Illuminate\Support\Facades\Route;
 
 Route::group(["controller" => ProductController::class],function(){
@@ -11,6 +12,6 @@ Route::group(["controller" => ProductController::class],function(){
 
     Route::post("/orders","createOrder");
 
-    Route::post("/payments/webhook/","handlePaymentWebhook");
+    Route::post("/payments/webhook/","handlePaymentWebhook")->middleware(IdempotencyKeyMiddleware::class);
 
 });

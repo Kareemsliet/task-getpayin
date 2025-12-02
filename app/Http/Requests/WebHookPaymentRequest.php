@@ -22,7 +22,6 @@ class WebHookPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "idempotency_key" => "required|string",
             "order_id" => "required",
             "status" => "required|string|in:success,failure",
         ];
