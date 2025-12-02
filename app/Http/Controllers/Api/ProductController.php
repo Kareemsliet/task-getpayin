@@ -105,7 +105,7 @@ class ProductController extends Controller
         Log::info("Received payment webhook", $request->all());
 
         $idempotencyKey = $request->input('idempotency_key');
-        $paymentStatus = PaymentStatusEnum::from($request->input('payment_status'));
+        $paymentStatus = PaymentStatusEnum::tryFrom($request->input('status'));
         $orderId = $request->input('order_id');
 
         // Check idempotency before transaction

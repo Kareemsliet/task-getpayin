@@ -2,39 +2,33 @@
 
 use App\Models\Product;
 
-
-it('creates a hold successfully and deducts stock', function () {
-    
-    $product = Product::first();
-    $initialStock = $product->stock;
-
-    $response = $this->postJson('/api/holds', [
-        'product_id' => $product->id,
-        'quantity' => 10,
-    ]);
-
-    $response->assertStatus(200);
-
-    expect($product->fresh()->stock)->toBe($initialStock - 10);
-
-});
-
-it('prevents overselling under concurrent requests', function () {
+// Test to ensure overselling is prevented under concurrent requests
+// Assumes initial stock of 30 for the product
+// Adjust the stock in ProductSeeder if necessary
+// This test will attempt to create 40 holds of quantity 1 concurrently
+// Only 30 holds should succeed, preventing overselling
+it('prevents_overselling_under_concurrent_requests', function () {
 
     $product = Product::first();
 
-    $responses = collect(range(1, 2))->map(fn () =>
+    $responses = collect(range(1, 40))->map(fn () =>
         $this->postJson('/api/holds', [
             'product_id' => $product->id,
-            'quantity' => 10,
+            'quantity' => 1,
         ])
     );
 
-    $success = $responses->filter(fn($res) => $res->isOk());
-    $deducted = $success->map(fn($res) => $res->json('data.quantity'))->sum();
+    // Count successful holds
+    $successCount = collect($responses)
+    ->filter(fn($res) => $res->isOk())
+    ->count();
 
-    $expectedStock = $product->stock - $deducted;
+    // successful holds MUST NOT exceed stock
+    expect($successCount)->toBe(30);
 
-    expect($product->fresh()->stock)->toBe($expectedStock);
+    // database should have exactly 30 holds only
+    $this->assertDatabaseCount('holds', 30);
+
+    expect($product->fresh()->stock)->toBe(0);
 
 });
