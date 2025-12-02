@@ -1,20 +1,11 @@
 # Flash-Sale Checkout System
 
-A Laravel checkout system for flash sales that prevents overselling through inventory holds and handles concurrent requests safely.
-
-## Features
-
-- ✅ Reserve items with 2-minute holds
-- ✅ Prevent stock overselling with database locks
-- ✅ Process payment webhooks with idempotency
-- ✅ Auto-cleanup expired holds with background jobs
-
 ## Quick Setup
 
 ### 1. Clone & Install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Kareemsliet/task-getpayin
 cd task-getpayin
 composer install
 ```
@@ -51,7 +42,7 @@ php artisan queue:listen
 ## Run Tests
 
 ```bash
-composer run test
+php artsan test
 ```
 
 Or run specific tests:
